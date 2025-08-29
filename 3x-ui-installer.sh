@@ -46,8 +46,7 @@ echo -e "${GREEN}✅ Порт $PORT открыт в UFW${NC}"
 
 # --- Шаг 4: Установка 3x-ui ---
 echo -e "${YELLOW}📥 Устанавливаем 3x-ui...${NC}"
-wget -N --no-check-certificate -O /root/install.sh https://raw.githubusercontent.com/FranzKafkaYu/x-ui/master/install.sh
-chmod +x /root/install.sh
+wget -N --no-check-certificate https://raw.githubusercontent.com/MHSanaei/3x-ui/master/install.sh
 bash /root/install.sh $PORT
 
 # --- Шаг 5: Генерация SSL-сертификата (10 лет) ---
