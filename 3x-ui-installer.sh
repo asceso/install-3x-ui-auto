@@ -5,6 +5,13 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# Define the database path and the SQL statements template (to be modified based on last ID)
+DB_PATH="/etc/x-ui/x-ui.db"
+SQL_INSERT_TEMPLATE="
+INSERT INTO settings VALUES (%d, 'webCertFile', '/etc/ssl/certs/3x-ui-public.key');
+INSERT INTO settings VALUES (%d, 'webKeyFile', '/etc/ssl/private/3x-ui-private.key');
+"
+
 # Function to check if sqlite3 is installed
 check_sqlite3() {
     if ! command -v sqlite3 &> /dev/null
