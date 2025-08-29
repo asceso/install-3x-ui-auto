@@ -61,6 +61,14 @@ install_openssl() {
     fi
 }
 
+check_if_ssl_present() {
+    local ssl_detected=$(grep -a 'webCertFile' "$DB_PATH")
+    if [ -n "$ssl_detected" ]; then  # Check if the variable is non-empty
+        echo "SSL cert detected in settings, exiting"
+        exit 0
+    fi
+}
+
 # Function to get the last ID in the settings table
 get_last_id() {
     LAST_ID=$(sqlite3 "$DB_PATH" "SELECT IFNULL(MAX(id), 0) FROM settings;")
