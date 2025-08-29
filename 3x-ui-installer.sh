@@ -1,12 +1,83 @@
 #!/bin/bash
-# Установка 3x-ui (MHSanaei) — исправленная версия с ручным указанием тега
-# Работает на Ubuntu 24.04
-
+# Установка 3x-ui
 set -e
-
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
+
+# Function to check if sqlite3 is installed
+check_sqlite3() {
+    if ! command -v sqlite3 &> /dev/null
+    then
+        echo "sqlite3 could not be found, installing..."
+        install_sqlite3
+    else
+        echo "sqlite3 is already installed."
+    fi
+}
+
+# Function to install sqlite3
+install_sqlite3() {
+    # Detect the package manager and install sqlite3
+    if [ -x "$(command -v apt-get)" ]; then
+        sudo apt-get update -y && sudo apt-get install -y sqlite3
+    elif [ -x "$(command -v yum)" ]; then
+        sudo yum install -y sqlite
+    elif [ -x "$(command -v dnf)" ]; then
+        sudo dnf install -y sqlite
+    elif [ -x "$(command -v pacman)" ]; then
+        sudo pacman -S --noconfirm sqlite
+    else
+        echo "Package manager not found. Please install sqlite3 manually."
+        exit 1
+    fi
+}
+
+# Function to check if openssl is installed
+check_openssl() {
+    if ! command -v openssl &> /dev/null
+    then
+        echo "openssl could not be found, installing..."
+        install_openssl
+    else
+        echo "openssl is already installed."
+    fi
+}
+
+# Function to install openssl
+install_openssl() {
+    # Detect the package manager and install openssl
+    if [ -x "$(command -v apt-get)" ]; then
+        sudo apt-get update -y && sudo apt-get install -y openssl
+    elif [ -x "$(command -v yum)" ]; then
+        sudo yum install -y openssl
+    elif [ -x "$(command -v dnf)" ]; then
+        sudo dnf install -y openssl
+    elif [ -x "$(command -v pacman)" ]; then
+        sudo pacman -S --noconfirm openssl
+    else
+        echo "Package manager not found. Please install openssl manually."
+        exit 1
+    fi
+}
+
+# Function to get the last ID in the settings table
+get_last_id() {
+    LAST_ID=$(sqlite3 "$DB_PATH" "SELECT IFNULL(MAX(id), 0) FROM settings;")
+    echo "The last ID in the settings table is $LAST_ID"
+}
+
+# Function to execute SQL inserts
+execute_sql_inserts() {
+    local next_id=$((LAST_ID + 1))
+    local second_id=$((next_id + 1))
+    printf "$SQL_INSERT_TEMPLATE" "$next_id" "$second_id" | sqlite3 "$DB_PATH"
+    echo "SQL inserts executed with IDs $next_id and $second_id."
+}
+
+gen_ssl_cert() {
+    openssl req -x509 -newkey rsa:4096 -nodes -sha256 -keyout /etc/ssl/private/3x-ui-private.key -out /etc/ssl/certs/3x-ui-public.key -days 3650 -subj "/CN=APP"
+}
 
 echo -e "${GREEN}🚀 Установка 3x-ui (исправленная версия)...${NC}"
 
@@ -21,16 +92,17 @@ echo -e "${GREEN}✅ Используем порт: ${PORT}${NC}"
 
 # --- Настройка UFW ---
 echo -e "${YELLOW}🔥 Настраиваем UFW...${NC}"
-ufw allow 22/tcp
-ufw allow $PORT/tcp
+ufw allow 22
+ufw allow $PORT
+ufw allow 8888
+ufw allow 9999
 echo "y" | ufw enable > /dev/null 2>&1 || true
 
-# --- Скачиваем исправленный установщик или используем прямую ссылку ---
-echo -e "${YELLOW}📥 Устанавливаем 3x-ui (вручную, с правильной версией)...${NC}"
+# --- Скачиваем установщик---
+echo -e "${YELLOW}📥 Устанавливаем 3x-ui...${NC}"
 
 # Указываем актуальную версию (проверено: работает)
 TAG_VERSION="v2.6.6"
-
 # Прямая ссылка на архив
 DOWNLOAD_URL="https://github.com/MHSanaei/3x-ui/releases/download/${TAG_VERSION}/x-ui-linux-amd64.tar.gz"
 
@@ -60,8 +132,8 @@ chmod +x /usr/local/x-ui/x-ui.sh
 echo -e "${YELLOW}⚙️  Настраиваем панель...${NC}"
 
 # Генерация случайных данных
-USERNAME=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 8 | head -n 1)
-PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 12 | head -n 1)
+USERNAME="administrator"
+PASSWORD="administrator"
 WEB_BASE_PATH=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 12 | head -n 1)
 
 # Создаём конфигурацию
@@ -74,16 +146,15 @@ systemctl start x-ui
 
 # --- Генерация SSL-сертификата (10 лет) ---
 echo -e "${YELLOW}🔐 Генерируем SSL-сертификат на 10 лет...${NC}"
-SSL_DIR="/etc/3x-ui"
-mkdir -p $SSL_DIR
-
-openssl req -x509 -nodes -newkey rsa:2048 \
-  -keyout $SSL_DIR/x-ui.key \
-  -out $SSL_DIR/x-ui.crt \
-  -days 3650 \
-  -subj "/C=RU/ST=Earth/L=Internet/O=OmaVPN/CN=localhost"
+check_sqlite3
+check_if_ssl_present
+check_openssl
+gen_ssl_cert
+get_last_id
+execute_sql_inserts
 
 # --- Перезапуск ---
+echo -e "${YELLOW}✳️ Перезапускаем панель${NC}"
 systemctl restart x-ui
 
 # --- Финальное сообщение ---
@@ -91,8 +162,8 @@ IP=$(curl -s https://api.ipify.org)
 echo -e "\n${GREEN}========================================${NC}"
 echo -e "${GREEN}🎉 Установка завершена!${NC}"
 echo -e "${GREEN}🌐 Панель: https://${IP}:${PORT}/${WEB_BASE_PATH}${NC}"
-echo -e "${GREEN}🔒 SSL: самоподписанный (до 2035 года)${NC}"
-echo -e "${YELLOW}⚠️  При входе: нажмите 'Дополнительно' → 'Продолжить'${NC}"
+echo -e "${GREEN}🔒 SSL: самоподписанный${NC}"
+echo -e "${YELLOW}⚠️ При входе: нажмите 'Дополнительно' → 'Продолжить'${NC}"
 echo -e "${GREEN}🔐 Логин: ${USERNAME}${NC}"
 echo -e "${GREEN}🔐 Пароль: ${PASSWORD}${NC}"
 echo -e "${GREEN}========================================${NC}"
