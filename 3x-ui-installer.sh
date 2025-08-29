@@ -87,7 +87,7 @@ gen_ssl_cert() {
     openssl req -x509 -newkey rsa:4096 -nodes -sha256 -keyout /etc/ssl/private/3x-ui-private.key -out /etc/ssl/certs/3x-ui-public.key -days 3650 -subj "/CN=APP"
 }
 
-echo -e "${GREEN}🚀 Установка 3x-ui (исправленная версия)...${NC}"
+echo -e "${GREEN}🚀 Установка 3x-ui...${NC}"
 
 # --- Обновление системы ---
 echo -e "${YELLOW}📦 Обновляем систему...${NC}"
