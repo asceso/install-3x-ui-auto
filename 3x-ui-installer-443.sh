@@ -103,7 +103,7 @@ apt update && apt upgrade -y
 apt install -y wget curl tar ufw
 
 # --- Генерация случайного порта ---
-PORT=$(shuf -i 10000-30000 -n 1)
+PORT=20000
 echo -e "${GREEN}✅ Используем порт: ${PORT}${NC}"
 
 # --- Настройка UFW ---
